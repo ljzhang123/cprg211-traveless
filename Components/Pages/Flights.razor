@@ -1,0 +1,170 @@
+﻿@page "/flights"
+@using traveless.Data
+
+<h3 style="text-align:center;">Flight Finder</h3>
+
+<div style="display: flex; justify-content: space-between; width: 100%;">
+    <div style="flex: 1; margin-right: 5px;">
+        <label>Origin</label>
+        <input placeholder="Any" @bind="searchOrigin" style="width: 100%;" />
+    </div>
+    <div style="flex: 1; margin-right: 5px;">
+        <label>Destination</label>
+        <input placeholder="Any" @bind="searchDestination" style="width: 100%;" />
+    </div>
+    <div style="flex: 1; margin-right: 5px;">
+        <label>Day of Week</label>
+        <input placeholder="Any" @bind="searchDay" style="width: 100%;" />
+    </div>
+    <div style="flex: 1;">
+        <label>&nbsp;</label>
+        <button @onclick="SearchFlights" style="width: 100%;">Search</button>
+    </div>
+</div>
+
+<br />
+
+<h4 style="text-align:center;">Flights</h4>
+<div>
+    @if (!searchPerformed)
+    {
+        <p>Loading</p>
+    }
+    else if (availableFlights.Any())
+    {
+        <ul style="list-style-type: none; padding: 0;">
+            @foreach (var flight in availableFlights)
+            {
+                <li style="cursor: pointer; padding: 5px; border-bottom: 1px solid #ccc;" @onclick="() => SelectFlight(flight)">
+                    @($"{flight.FlightCode}, {flight.Airline}, {flight.Origin}, {flight.Destination}, {flight.DayOfWeek}, {flight.Time}, {flight.Cost}")
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No flights found.</p>
+    }
+</div>
+
+<h3 style="text-align:center;">Reserve</h3>
+<div style="width:100%;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div>
+            <label>Flight Code:</label>
+            <input value="@((selectedFlight != null) ? selectedFlight.FlightCode : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Airline:</label>
+            <input value="@((selectedFlight != null) ? selectedFlight.Airline : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Day:</label>
+            <input value="@((selectedFlight != null) ? selectedFlight.DayOfWeek : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Time:</label>
+            <input value="@((selectedFlight != null) ? selectedFlight.Time : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Cost:</label>
+            <input value="@((selectedFlight != null) ? selectedFlight.Cost.ToString() : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Traveller Name:</label>
+            <input placeholder="Enter traveller name" @bind="travellerName" style="width:100%;" />
+        </div>
+        <div>
+            <label>Citizenship:</label>
+            <input placeholder="Enter citizenship" @bind="citizenship" style="width:100%;" />
+        </div>
+        <div>
+            <button @onclick="MakeReservation" style="width:100%;">Make Reservation</button>
+        </div>
+    </div>
+</div>
+
+<p>@message</p>
+
+@code {
+    private string searchOrigin;
+    private string searchDestination;
+    private string searchDay;
+    private bool searchPerformed = false;
+    private List<Flight> availableFlights = new List<Flight>();
+    private Flight selectedFlight;
+    private string travellerName;
+    private string citizenship;
+    private string message;
+
+    protected override void OnInitialized()
+    {
+        availableFlights = new List<Flight>();
+    }
+
+    private void SearchFlights()
+    {
+        List<Flight> allFlights = FlightData.GetFlights();
+        List<Flight> filteredFlights = new List<Flight>();
+
+        foreach (var currentFlight in allFlights)
+        {
+            bool originIsValid = string.IsNullOrWhiteSpace(searchOrigin) || currentFlight.Origin.Equals(searchOrigin, StringComparison.OrdinalIgnoreCase);
+            bool destinationIsValid = string.IsNullOrWhiteSpace(searchDestination) || currentFlight.Destination.Equals(searchDestination, StringComparison.OrdinalIgnoreCase);
+            bool dayIsValid = string.IsNullOrWhiteSpace(searchDay) || currentFlight.DayOfWeek.Equals(searchDay, StringComparison.OrdinalIgnoreCase);
+
+            if (originIsValid && destinationIsValid && dayIsValid)
+            {
+                filteredFlights.Add(currentFlight);
+            }
+        }
+
+        availableFlights = filteredFlights;
+        searchPerformed = true;
+        message = $"Found {availableFlights.Count} flight(s).";
+    }
+
+    private void SelectFlight(Flight flightToSelect)
+    {
+        selectedFlight = flightToSelect;
+        message = "";
+    }
+
+    private void MakeReservation()
+    {
+        bool isFlightChosen = selectedFlight != null;
+        if (!isFlightChosen)
+        {
+            message = "Error: No flight selected.";
+            return;
+        }
+
+        bool isTravellerNameProvided = !string.IsNullOrWhiteSpace(travellerName);
+        if (!isTravellerNameProvided)
+        {
+            message = "Error: Traveller name cannot be empty.";
+            return;
+        }
+
+        bool isCitizenshipProvided = !string.IsNullOrWhiteSpace(citizenship);
+        if (!isCitizenshipProvided)
+        {
+            message = "Error: Citizenship cannot be empty.";
+            return;
+        }
+
+        try
+        {
+            ReservationManager reservationManager = new ReservationManager();
+            var reservationResult = reservationManager.MakeReservation(selectedFlight, travellerName, citizenship);
+            message = $"Reservation successful! Code: {reservationResult.ReservationCode}";
+            travellerName = "";
+            citizenship = "";
+            selectedFlight = null;
+        }
+        catch (Exception exceptionDetails)
+        {
+            message = "Error: " + exceptionDetails.Message;
+        }
+    }
+}

@@ -1,0 +1,155 @@
+﻿@page "/reservations"
+@using traveless.Data
+
+<h3 style="text-align:center;">Reservation Finder</h3>
+
+<div style="display: flex; justify-content: space-between; width: 100%;">
+    <div style="flex: 1; margin-right: 5px;">
+        <label>Reservation Code</label>
+        <input placeholder="Any" @bind="searchReservationCode" style="width: 100%;" />
+    </div>
+    <div style="flex: 1; margin-right: 5px;">
+        <label>Airline</label>
+        <input placeholder="Any" @bind="searchAirline" style="width: 100%;" />
+    </div>
+    <div style="flex: 1; margin-right: 5px;">
+        <label>Traveller Name</label>
+        <input placeholder="Any" @bind="searchTravellerName" style="width: 100%;" />
+    </div>
+    <div style="flex: 1;">
+        <label>&nbsp;</label>
+        <button @onclick="SearchReservations" style="width: 100%;">Search</button>
+    </div>
+</div>
+
+<br />
+
+<h4 style="text-align:center;">Reservations</h4>
+<div>
+    @if (!searchPerformed)
+    {
+        <p>Loading</p>
+    }
+    else if (foundReservations.Any())
+    {
+        <ul style="list-style-type: none; padding: 0;">
+            @foreach (var reservation in foundReservations)
+            {
+                <li style="cursor: pointer; padding: 5px; border-bottom: 1px solid #ccc;" @onclick="() => SelectReservation(reservation)">
+                    @($"{reservation.ReservationCode}, {reservation.Flight.FlightCode}, {reservation.Flight.Airline}, {reservation.Flight.Origin}, {reservation.Flight.Destination}, {reservation.Flight.DayOfWeek}, {reservation.Flight.Time}, {reservation.Flight.Cost}")
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No reservations found.</p>
+    }
+</div>
+
+<h3 style="text-align:center;">Update Reservation</h3>
+<div style="width:100%;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div>
+            <label>Reservation Code:</label>
+            <input value="@((selectedReservation != null) ? selectedReservation.ReservationCode : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Flight Code:</label>
+            <input value="@((selectedReservation != null) ? selectedReservation.Flight.FlightCode : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Airline:</label>
+            <input value="@((selectedReservation != null) ? selectedReservation.Flight.Airline : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Cost:</label>
+            <input value="@((selectedReservation != null) ? selectedReservation.Flight.Cost.ToString() : "")" readonly style="width:100%;" />
+        </div>
+        <div>
+            <label>Traveller Name:</label>
+            <input placeholder="Enter traveller name" @bind="editTravellerName" style="width:100%;" />
+        </div>
+        <div>
+            <label>Citizenship:</label>
+            <input placeholder="Enter citizenship" @bind="editCitizenship" style="width:100%;" />
+        </div>
+        <div>
+            <label>Status:</label>
+            <select @bind="editStatus" style="width:100%;">
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+            </select>
+        </div>
+        <div>
+            <button @onclick="UpdateReservation" style="width:100%;">Update</button>
+        </div>
+    </div>
+</div>
+
+<p>@message</p>
+
+@code {
+    private string searchReservationCode;
+    private string searchAirline;
+    private string searchTravellerName;
+    private bool searchPerformed = false;
+    private List<Reservation> foundReservations = new List<Reservation>();
+    private Reservation selectedReservation;
+    private string editTravellerName;
+    private string editCitizenship;
+    private bool editStatus;
+    private string message;
+    private ReservationManager manager = new ReservationManager();
+
+    private void SearchReservations()
+    {
+        List<Reservation> reservationsResult = manager.FindReservations(searchReservationCode, searchAirline, searchTravellerName);
+        foundReservations = reservationsResult;
+        searchPerformed = true;
+        message = $"Found {foundReservations.Count} reservation(s).";
+    }
+
+    private void SelectReservation(Reservation reservationToSelect)
+    {
+        selectedReservation = reservationToSelect;
+        editTravellerName = reservationToSelect.TravellerName;
+        editCitizenship = reservationToSelect.Citizenship;
+        editStatus = reservationToSelect.IsActive;
+        message = "";
+    }
+
+    private void UpdateReservation()
+    {
+        if (selectedReservation == null)
+        {
+            message = "Error: No reservation selected.";
+            return;
+        }
+
+        bool isTravellerNameValid = !string.IsNullOrWhiteSpace(editTravellerName);
+        if (!isTravellerNameValid)
+        {
+            message = "Error: Traveller name cannot be empty.";
+            return;
+        }
+
+        bool isCitizenshipValid = !string.IsNullOrWhiteSpace(editCitizenship);
+        if (!isCitizenshipValid)
+        {
+            message = "Error: Citizenship cannot be empty.";
+            return;
+        }
+
+        try
+        {
+            manager.UpdateReservation(selectedReservation, editTravellerName, editCitizenship, editStatus);
+            message = "Reservation updated successfully.";
+            SearchReservations();
+        }
+        catch (Exception exceptionDetails)
+        {
+            message = "Error: " + exceptionDetails.Message;
+        }
+    }
+}
